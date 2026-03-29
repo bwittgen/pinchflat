@@ -3,6 +3,8 @@ defmodule Pinchflat.Downloading.DownloadOptionBuilder do
   Builds the options for yt-dlp to download media based on the given media profile.
   """
 
+  use Pinchflat.Media.MediaQuery
+
   alias Pinchflat.Sources
   alias Pinchflat.Sources.Source
   alias Pinchflat.Media.MediaItem
