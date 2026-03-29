@@ -11,6 +11,7 @@ defmodule PinchflatWeb.Sources.SourceController do
   alias Pinchflat.Sources.SourceDeletionWorker
   alias Pinchflat.Downloading.DownloadingHelpers
   alias Pinchflat.SlowIndexing.SlowIndexingHelpers
+  alias Pinchflat.Metadata.NfoRebuildWorker
   alias Pinchflat.Metadata.SourceMetadataStorageWorker
 
   def index(conn, _params) do
@@ -156,6 +157,15 @@ defmodule PinchflatWeb.Sources.SourceController do
       id,
       "File sync enqueued.",
       &FileSyncingWorker.kickoff_with_task/1
+    )
+  end
+
+  def force_rebuild_nfo(conn, %{"source_id" => id}) do
+    wrap_forced_action(
+      conn,
+      id,
+      "NFO rebuild enqueued.",
+      &NfoRebuildWorker.kickoff_with_task/1
     )
   end
 

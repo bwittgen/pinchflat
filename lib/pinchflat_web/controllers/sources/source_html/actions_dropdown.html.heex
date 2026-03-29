@@ -78,6 +78,15 @@
     </.link>
   </:option>
   <:option>
+    <.link
+      href={~p"/sources/#{@source}/force_rebuild_nfo"}
+      method="post"
+      data-confirm="Are you sure you want to rebuild all NFO files for this source? This will regenerate NFO files from stored metadata."
+    >
+      Rebuild NFO Files
+    </.link>
+  </:option>
+  <:option>
     <div class="h-px w-full bg-bodydark2"></div>
   </:option>
   <:option>
