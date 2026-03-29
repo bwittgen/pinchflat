@@ -77,6 +77,17 @@ defmodule PinchflatWeb.Router do
     get "/healthcheck", HealthController, :check, log: false
   end
 
+  scope "/api", PinchflatWeb.Api do
+    pipe_through [:api, :api_token_auth]
+
+    resources "/sources", SourcesController, only: [:index, :show, :create] do
+      get "/media", SourcesController, :media
+      post "/force_index", SourcesController, :force_index
+    end
+
+    get "/stats", StatsController, :index
+  end
+
   scope "/dev" do
     pipe_through :browser
 
