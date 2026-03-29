@@ -96,5 +96,27 @@
     </div>
   </section>
 
+  <section class="mt-8">
+    <section>
+      <h3 class="text-2xl text-black dark:text-white">
+        Plex Integration
+      </h3>
+
+      <.input
+        field={f[:plex_server_url]}
+        placeholder="http://localhost:32400"
+        label="Plex Server URL"
+        help="URL of your Plex Media Server. Library scans will be triggered after downloads complete"
+      />
+
+      <.input
+        field={f[:plex_token]}
+        placeholder="your-plex-token"
+        label="Plex Token"
+        help="Authentication token for your Plex server. Find it at https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/"
+      />
+    </section>
+  </section>
+
   <.button class="mt-10 mb-4 sm:mb-8 w-full sm:w-auto" rounding="rounded-lg">Save Settings</.button>
 </.simple_form>

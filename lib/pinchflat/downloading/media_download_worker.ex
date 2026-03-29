@@ -17,6 +17,7 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
   alias Pinchflat.Downloading.MediaDownloader
 
   alias Pinchflat.Lifecycle.UserScripts.CommandRunner, as: UserScriptRunner
+  alias Pinchflat.Plex.PlexScanWorker
 
   @doc """
   Starts the media_item media download worker and creates a task for the media_item.
@@ -102,6 +103,7 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
 
         :ok = FileSyncing.delete_outdated_files(media_item, updated_media_item)
         run_user_script(:media_downloaded, updated_media_item)
+        enqueue_plex_scan(updated_media_item)
 
         :ok
 
@@ -150,5 +152,9 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
     runner = Application.get_env(:pinchflat, :user_script_runner, UserScriptRunner)
 
     runner.run(event, media_item)
+  end
+
+  defp enqueue_plex_scan(media_item) do
+    PlexScanWorker.enqueue_for_media_item(media_item)
   end
 end
