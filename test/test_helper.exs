@@ -10,6 +10,9 @@ Application.put_env(:pinchflat, :http_client, HTTPClientMock)
 Mox.defmock(UserScriptRunnerMock, for: Pinchflat.Lifecycle.UserScripts.UserScriptCommandRunner)
 Application.put_env(:pinchflat, :user_script_runner, UserScriptRunnerMock)
 
+Mox.defmock(PlexApiMock, for: Pinchflat.Plex.PlexBehaviour)
+Application.put_env(:pinchflat, :plex_runner, PlexApiMock)
+
 ExUnit.start()
 Ecto.Adapters.SQL.Sandbox.mode(Pinchflat.Repo, :manual)
 Faker.start()

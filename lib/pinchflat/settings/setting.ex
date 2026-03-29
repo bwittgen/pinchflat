@@ -17,7 +17,9 @@ defmodule Pinchflat.Settings.Setting do
     :youtube_api_key,
     :extractor_sleep_interval_seconds,
     :download_throughput_limit,
-    :restrict_filenames
+    :restrict_filenames,
+    :plex_server_url,
+    :plex_token
   ]
 
   @required_fields [
@@ -43,6 +45,9 @@ defmodule Pinchflat.Settings.Setting do
 
     field :video_codec_preference, :string
     field :audio_codec_preference, :string
+
+    field :plex_server_url, :string
+    field :plex_token, :string
   end
 
   @doc false
