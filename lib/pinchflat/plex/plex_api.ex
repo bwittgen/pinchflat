@@ -205,26 +205,26 @@ defmodule Pinchflat.Plex.PlexApi do
     end)
   end
 
-  defp search_section_for_file(section_id, _filepath, media_item) do
+  defp search_section_for_file(section_id, filepath, media_item) do
     title = media_item.title || ""
     encoded_title = URI.encode(title)
     url = build_url("/library/sections/#{section_id}/search?type=4&query=#{encoded_title}")
 
     case http_client().get(url, auth_headers()) do
       {:ok, body} ->
-        parse_search_results(body, media_item)
+        parse_search_results(body, media_item, filepath)
 
       {:error, _reason} ->
         {:error, "Search failed for section #{section_id}"}
     end
   end
 
-  defp parse_search_results(body, media_item) do
+  defp parse_search_results(body, media_item, filepath) do
     case Phoenix.json_library().decode(body) do
       {:ok, %{"MediaContainer" => %{"Metadata" => metadata}}} when is_list(metadata) ->
         match =
           Enum.find(metadata, fn item ->
-            matches_media_item?(item, media_item)
+            matches_by_filepath?(item, filepath) || matches_media_item?(item, media_item)
           end)
 
         if match do
@@ -239,6 +239,18 @@ defmodule Pinchflat.Plex.PlexApi do
       {:error, _} ->
         {:error, "Failed to parse search results"}
     end
+  end
+
+  defp matches_by_filepath?(plex_item, filepath) do
+    plex_item
+    |> Map.get("Media", [])
+    |> Enum.any?(fn media ->
+      media
+      |> Map.get("Part", [])
+      |> Enum.any?(fn part ->
+        Map.get(part, "file") == filepath
+      end)
+    end)
   end
 
   defp matches_media_item?(plex_item, media_item) do
