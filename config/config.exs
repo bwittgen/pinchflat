@@ -28,7 +28,10 @@ config :pinchflat,
   expose_feed_endpoints: false,
   file_watcher_poll_interval: 1000,
   timezone: "UTC",
-  base_route_path: "/"
+  base_route_path: "/",
+  # Process monitoring defaults - timeout in seconds, memory in KB (0 to disable)
+  process_timeout_seconds: 1800,
+  max_process_memory_kb: 1_572_864
 
 config :pinchflat, Pinchflat.Repo,
   journal_mode: :wal,
