@@ -71,6 +71,7 @@ defmodule Pinchflat.Media.MediaItem do
     field :original_url, :string
     field :livestream, :boolean, default: false
     field :short_form_content, :boolean, default: false
+    field :public, :boolean, default: true
     field :media_downloaded_at, :utc_datetime
     field :media_redownloaded_at, :utc_datetime
     field :uploaded_at, :utc_datetime
