@@ -98,6 +98,13 @@
     />
 
     <.input
+      field={f[:redownload_deleted_media]}
+      type="toggle"
+      label="Re-download Deleted Media"
+      help="When enabled, media files deleted from the filesystem will be re-downloaded on the next sync. When disabled, deleted files are marked as ignored and won't be re-downloaded"
+    />
+
+    <.input
       field={f[:cookie_behaviour]}
       options={friendly_cookie_behaviours()}
       type="select"

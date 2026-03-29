@@ -33,5 +33,25 @@ defmodule Pinchflat.Media.FileSyncingWorkerTest do
 
       refute updated_media_item.media_filepath
     end
+
+    test "sets prevent_download when source disallows redownload of deleted media" do
+      source = source_fixture(%{redownload_deleted_media: false})
+      media_item = media_item_fixture(%{media_filepath: "/tmp/missing.mp4", source_id: source.id})
+
+      perform_job(FileSyncingWorker, %{"id" => source.id})
+      updated_media_item = Repo.reload!(media_item)
+
+      assert updated_media_item.prevent_download
+    end
+
+    test "does not set prevent_download when source allows redownload of deleted media" do
+      source = source_fixture(%{redownload_deleted_media: true})
+      media_item = media_item_fixture(%{media_filepath: "/tmp/missing.mp4", source_id: source.id})
+
+      perform_job(FileSyncingWorker, %{"id" => source.id})
+      updated_media_item = Repo.reload!(media_item)
+
+      refute updated_media_item.prevent_download
+    end
   end
 end

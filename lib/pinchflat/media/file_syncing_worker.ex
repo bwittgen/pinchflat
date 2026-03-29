@@ -31,7 +31,7 @@ defmodule Pinchflat.Media.FileSyncingWorker do
   def perform(%Oban.Job{args: %{"id" => source_id}}) do
     source = Repo.preload(Sources.get_source!(source_id), :media_items)
 
-    FileSyncing.sync_file_presence_on_disk(source.media_items)
+    FileSyncing.sync_file_presence_on_disk(source.media_items, source)
 
     :ok
   end
