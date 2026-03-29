@@ -10,6 +10,7 @@ defmodule PinchflatWeb.SourceControllerTest do
   alias Pinchflat.Media.FileSyncingWorker
   alias Pinchflat.Sources.SourceDeletionWorker
   alias Pinchflat.Downloading.MediaDownloadWorker
+  alias Pinchflat.Metadata.NfoRebuildWorker
   alias Pinchflat.Metadata.SourceMetadataStorageWorker
   alias Pinchflat.SlowIndexing.MediaCollectionIndexingWorker
 
@@ -265,6 +266,23 @@ defmodule PinchflatWeb.SourceControllerTest do
       source = source_fixture()
 
       conn = post(conn, ~p"/sources/#{source.id}/sync_files_on_disk")
+      assert redirected_to(conn) == ~p"/sources/#{source.id}"
+    end
+  end
+
+  describe "force_rebuild_nfo" do
+    test "enqueues an NFO rebuild job", %{conn: conn} do
+      source = source_fixture()
+
+      assert [] = all_enqueued(worker: NfoRebuildWorker)
+      post(conn, ~p"/sources/#{source.id}/force_rebuild_nfo")
+      assert [_] = all_enqueued(worker: NfoRebuildWorker)
+    end
+
+    test "redirects to the source page", %{conn: conn} do
+      source = source_fixture()
+
+      conn = post(conn, ~p"/sources/#{source.id}/force_rebuild_nfo")
       assert redirected_to(conn) == ~p"/sources/#{source.id}"
     end
   end
