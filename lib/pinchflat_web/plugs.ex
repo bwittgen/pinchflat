@@ -54,6 +54,30 @@ defmodule PinchflatWeb.Plugs do
     send_unauthorized(conn)
   end
 
+  @doc """
+  Authenticates API requests using a Bearer token that matches the `route_token` setting.
+  Falls back to HTTP Basic Auth if no Bearer token is provided but Basic Auth credentials are configured.
+  """
+  def api_token_auth(conn, _opts) do
+    with ["Bearer " <> token] <- get_req_header(conn, "authorization"),
+         true <- token != "" && Settings.get!(:route_token) == token do
+      conn
+    else
+      _ -> try_basic_auth_for_api(conn)
+    end
+  end
+
+  defp try_basic_auth_for_api(conn) do
+    username = Application.get_env(:pinchflat, :basic_auth_username)
+    password = Application.get_env(:pinchflat, :basic_auth_password)
+
+    if credential_set?(username) && credential_set?(password) do
+      Plug.BasicAuth.basic_auth(conn, username: username, password: password, realm: "Pinchflat API")
+    else
+      send_unauthorized_json(conn)
+    end
+  end
+
   defp credential_set?(credential) do
     credential && credential != ""
   end
@@ -61,6 +85,13 @@ defmodule PinchflatWeb.Plugs do
   defp send_unauthorized(conn) do
     conn
     |> send_resp(:unauthorized, "Unauthorized")
+    |> halt()
+  end
+
+  defp send_unauthorized_json(conn) do
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(:unauthorized, Jason.encode!(%{error: "Unauthorized"}))
     |> halt()
   end
 end

@@ -163,4 +163,62 @@ defmodule PinchflatWeb.PlugsTest do
       assert conn.resp_body == "Unauthorized"
     end
   end
+
+  describe "api_token_auth/2" do
+    setup do
+      old_username = Application.get_env(:pinchflat, :basic_auth_username)
+      old_password = Application.get_env(:pinchflat, :basic_auth_password)
+
+      on_exit(fn ->
+        Application.put_env(:pinchflat, :basic_auth_username, old_username)
+        Application.put_env(:pinchflat, :basic_auth_password, old_password)
+      end)
+
+      :ok
+    end
+
+    test "allows access with a valid Bearer token", %{conn: conn} do
+      route_token = Settings.get!(:route_token)
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{route_token}")
+        |> Plugs.api_token_auth([])
+
+      assert conn.status == nil
+    end
+
+    test "rejects an invalid Bearer token when basic auth is not configured", %{conn: conn} do
+      Application.put_env(:pinchflat, :basic_auth_username, "")
+      Application.put_env(:pinchflat, :basic_auth_password, "")
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer invalid-token")
+        |> Plugs.api_token_auth([])
+
+      assert conn.status == 401
+    end
+
+    test "rejects requests with no authorization header when basic auth is not configured", %{conn: conn} do
+      Application.put_env(:pinchflat, :basic_auth_username, "")
+      Application.put_env(:pinchflat, :basic_auth_password, "")
+
+      conn = Plugs.api_token_auth(conn, [])
+
+      assert conn.status == 401
+    end
+
+    test "falls back to basic auth when Bearer token is invalid", %{conn: conn} do
+      Application.put_env(:pinchflat, :basic_auth_username, "user")
+      Application.put_env(:pinchflat, :basic_auth_password, "pass")
+
+      conn =
+        conn
+        |> put_req_header("authorization", Plug.BasicAuth.encode_basic_auth("user", "pass"))
+        |> Plugs.api_token_auth([])
+
+      assert conn.status == nil
+    end
+  end
 end
