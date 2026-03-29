@@ -99,19 +99,30 @@ defmodule Pinchflat.Downloading.DownloadingHelpers do
     |> batch_kickoff_redownloads()
   end
 
-  defp batch_kickoff_redownloads(query, batch_size \\ 500, offset \\ 0) do
+  defp batch_kickoff_redownloads(query, batch_size \\ 500) do
+    do_batch_kickoff_redownloads(query, batch_size, 0, [])
+  end
+
+  defp do_batch_kickoff_redownloads(query, batch_size, offset, acc) do
     batch =
       query
       |> limit(^batch_size)
       |> offset(^offset)
       |> Repo.all()
 
-    results = Enum.map(batch, &MediaDownloadWorker.kickoff_with_task/1)
+    case batch do
+      [] ->
+        acc |> Enum.reverse() |> List.flatten()
 
-    if length(batch) < batch_size do
-      results
-    else
-      results ++ batch_kickoff_redownloads(query, batch_size, offset + batch_size)
+      _ ->
+        results = Enum.map(batch, &MediaDownloadWorker.kickoff_with_task/1)
+        new_acc = [results | acc]
+
+        if Enum.count(batch) < batch_size do
+          new_acc |> Enum.reverse() |> List.flatten()
+        else
+          do_batch_kickoff_redownloads(query, batch_size, offset + batch_size, new_acc)
+        end
     end
   end
 end
