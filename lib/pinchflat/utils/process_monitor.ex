@@ -117,7 +117,8 @@ defmodule Pinchflat.Utils.ProcessMonitor do
     |> get_child_pids()
     |> Enum.each(&kill_process_tree/1)
 
-    System.cmd("kill", ["-9", to_string(pid)], stderr_to_stdout: true)
+    # Use :os.cmd directly to avoid routing through ProcessMonitor
+    :os.cmd(String.to_charlist("kill -9 #{pid}"))
   catch
     _, _ -> :ok
   end
@@ -136,16 +137,14 @@ defmodule Pinchflat.Utils.ProcessMonitor do
   end
 
   defp try_pgrep(parent_pid) do
-    case System.cmd("pgrep", ["-P", to_string(parent_pid)], stderr_to_stdout: true) do
-      {output, 0} ->
-        output
-        |> String.trim()
-        |> String.split("\n", trim: true)
-        |> Enum.map(&String.to_integer/1)
+    # Use :os.cmd directly to avoid routing through ProcessMonitor
+    output = :os.cmd(String.to_charlist("pgrep -P #{parent_pid}"))
 
-      _ ->
-        []
-    end
+    output
+    |> List.to_string()
+    |> String.trim()
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.to_integer/1)
   catch
     _, _ -> []
   end
