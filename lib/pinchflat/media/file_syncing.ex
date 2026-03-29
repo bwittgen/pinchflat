@@ -36,13 +36,26 @@ defmodule Pinchflat.Media.FileSyncing do
   end
 
   @doc """
-  Nillifies any media item filepaths that don't exist on disk for a list of media items
+  Nillifies any media item filepaths that don't exist on disk for a list of media items.
+
+  When a source is provided, checks the source's `redownload_deleted_media` setting.
+  If `redownload_deleted_media` is false and a previously-downloaded media file is
+  detected as missing from disk, the media item will also have `prevent_download`
+  set to true to prevent automatic re-download.
 
   returns [%MediaItem{}]
   """
-  def sync_file_presence_on_disk(media_items) do
+  def sync_file_presence_on_disk(media_items, source \\ nil) do
     Enum.map(media_items, fn media_item ->
       new_attributes = sync_media_item_files(media_item)
+
+      new_attributes =
+        if should_prevent_redownload?(media_item, new_attributes, source) do
+          Map.put(new_attributes, :prevent_download, true)
+        else
+          new_attributes
+        end
+
       # Doing this one-by-one instead of batching since this process
       # can take time and a batch could let MediaItem state get out of sync
       {:ok, updated_media_item} = Media.update_media_item(media_item, new_attributes)
@@ -89,5 +102,18 @@ defmodule Pinchflat.Media.FileSyncing do
       end)
 
     Map.put(new_non_subtitle_attrs, :subtitle_filepaths, new_subtitle_attrs)
+  end
+
+  # A media file was externally deleted if the media item previously had a
+  # media_filepath (meaning it was downloaded) but the sync determined the
+  # file no longer exists on disk (new attributes set media_filepath to nil).
+  # In this case, if the source has redownload_deleted_media disabled,
+  # prevent automatic re-download.
+  defp should_prevent_redownload?(media_item, new_attributes, source) do
+    had_media_file = is_binary(media_item.media_filepath)
+    media_file_now_missing = Map.get(new_attributes, :media_filepath) == nil
+    redownload_disabled = source != nil && !source.redownload_deleted_media
+
+    had_media_file && media_file_now_missing && redownload_disabled
   end
 end

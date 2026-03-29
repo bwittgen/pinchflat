@@ -41,6 +41,7 @@ defmodule Pinchflat.Sources.Source do
     min_duration_seconds
     max_duration_seconds
     members_content_behaviour
+    redownload_deleted_media
   )a
 
   # Expensive API calls are made when a source is inserted/updated so
@@ -81,6 +82,7 @@ defmodule Pinchflat.Sources.Source do
     field :fast_index, :boolean, default: false
     field :cookie_behaviour, Ecto.Enum, values: [:disabled, :when_needed, :all_operations], default: :disabled
     field :download_media, :boolean, default: true
+    field :redownload_deleted_media, :boolean, default: false
     field :members_content_behaviour, Ecto.Enum, values: ~w(include exclude only)a, default: :include
 
     field :last_indexed_at, :utc_datetime

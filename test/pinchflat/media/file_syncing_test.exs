@@ -110,6 +110,51 @@ defmodule Pinchflat.Media.FileSyncingTest do
     end
   end
 
+  describe "sync_file_presence_on_disk/2 with source" do
+    import Pinchflat.SourcesFixtures
+
+    test "sets prevent_download when media file is missing and source disallows redownload" do
+      source = source_fixture(%{redownload_deleted_media: false})
+      media_item = media_item_fixture(%{media_filepath: "/tmp/missing_file.mp4", source_id: source.id})
+
+      refute media_item.prevent_download
+      assert [updated_media_item] = FileSyncing.sync_file_presence_on_disk([media_item], source)
+      assert updated_media_item.prevent_download
+    end
+
+    test "does not set prevent_download when media file is missing and source allows redownload" do
+      source = source_fixture(%{redownload_deleted_media: true})
+      media_item = media_item_fixture(%{media_filepath: "/tmp/missing_file.mp4", source_id: source.id})
+
+      refute media_item.prevent_download
+      assert [updated_media_item] = FileSyncing.sync_file_presence_on_disk([media_item], source)
+      refute updated_media_item.prevent_download
+    end
+
+    test "does not set prevent_download when media file was never downloaded" do
+      source = source_fixture(%{redownload_deleted_media: false})
+      media_item = media_item_fixture(%{media_filepath: nil, source_id: source.id})
+
+      assert [updated_media_item] = FileSyncing.sync_file_presence_on_disk([media_item], source)
+      refute updated_media_item.prevent_download
+    end
+
+    test "does not set prevent_download when media file still exists on disk" do
+      source = source_fixture(%{redownload_deleted_media: false})
+      media_item = media_item_with_attachments(%{source_id: source.id})
+
+      assert [updated_media_item] = FileSyncing.sync_file_presence_on_disk([media_item], source)
+      refute updated_media_item.prevent_download
+    end
+
+    test "does not set prevent_download when no source is provided" do
+      media_item = media_item_fixture(%{media_filepath: "/tmp/missing_file.mp4"})
+
+      assert [updated_media_item] = FileSyncing.sync_file_presence_on_disk([media_item])
+      refute updated_media_item.prevent_download
+    end
+  end
+
   defp get_subtitle_filepath(media_item, language) do
     Enum.reduce_while(media_item.subtitle_filepaths, nil, fn [lang, filepath], acc ->
       if lang == language do
