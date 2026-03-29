@@ -20,6 +20,7 @@ on:
   push:
     branches:
       - master
+      - community
   release:
     types:
       - published
@@ -42,7 +43,6 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            docker.io/keglin/pinchflat
             ghcr.io/${{ github.repository }}
           # All non-release actions will be tagged as `dev` (ie: push, workflow_dispatch)
           tags: |
@@ -60,6 +60,7 @@ jobs:
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
