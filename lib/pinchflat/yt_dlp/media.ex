@@ -172,8 +172,8 @@ defmodule Pinchflat.YtDlp.Media do
 
   defp parse_downloadable_status(response) do
     case response["live_status"] do
-      status when status in ["is_live", "is_upcoming", "post_live"] -> {:ok, :ignorable}
-      status when status in ["was_live", "not_live"] -> {:ok, :downloadable}
+      status when status in ["is_live", "is_upcoming"] -> {:ok, :ignorable}
+      status when status in ["was_live", "not_live", "post_live"] -> {:ok, :downloadable}
       # This preserves my tenuous support for non-youtube sources.
       nil -> {:ok, :downloadable}
       _ -> {:error, "Unknown live status: #{response["live_status"]}"}
