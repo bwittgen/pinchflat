@@ -96,7 +96,22 @@ defmodule Pinchflat.Downloading.DownloadingHelpers do
           not (^MediaQuery.download_prevented())
       )
     )
-    |> Repo.all()
-    |> Enum.map(&MediaDownloadWorker.kickoff_with_task/1)
+    |> batch_kickoff_redownloads()
+  end
+
+  defp batch_kickoff_redownloads(query, batch_size \\ 500, offset \\ 0) do
+    batch =
+      query
+      |> limit(^batch_size)
+      |> offset(^offset)
+      |> Repo.all()
+
+    results = Enum.map(batch, &MediaDownloadWorker.kickoff_with_task/1)
+
+    if length(batch) < batch_size do
+      results
+    else
+      results ++ batch_kickoff_redownloads(query, batch_size, offset + batch_size)
+    end
   end
 end

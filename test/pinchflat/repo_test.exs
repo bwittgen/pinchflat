@@ -52,4 +52,32 @@ defmodule Pinchflat.RepoTest do
       assert result == 2
     end
   end
+
+  describe "batch_process/3" do
+    test "processes all records" do
+      mp1 = media_profile_fixture()
+      mp2 = media_profile_fixture()
+      mp3 = media_profile_fixture()
+
+      assert :ok = Repo.batch_process(MediaProfile, fn record -> Repo.delete(record) end)
+
+      refute Repo.get(MediaProfile, mp1.id)
+      refute Repo.get(MediaProfile, mp2.id)
+      refute Repo.get(MediaProfile, mp3.id)
+    end
+
+    test "processes records in batches of the given size" do
+      media_profile_fixture()
+      media_profile_fixture()
+      media_profile_fixture()
+
+      assert :ok = Repo.batch_process(MediaProfile, fn record -> Repo.delete(record) end, 2)
+
+      assert Repo.aggregate(MediaProfile, :count, :id) == 0
+    end
+
+    test "returns :ok when there are no records" do
+      assert :ok = Repo.batch_process(MediaProfile, fn record -> Repo.delete(record) end)
+    end
+  end
 end
