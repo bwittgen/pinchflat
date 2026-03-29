@@ -2,6 +2,8 @@ defmodule PinchflatWeb.Api.SourcesController do
   use PinchflatWeb, :controller
   use Pinchflat.Media.MediaQuery
 
+  import PinchflatWeb.Api.ErrorHelpers
+
   alias Pinchflat.Repo
   alias Pinchflat.Sources
   alias Pinchflat.SlowIndexing.SlowIndexingHelpers
@@ -58,13 +60,5 @@ defmodule PinchflatWeb.Api.SourcesController do
     SlowIndexingHelpers.kickoff_indexing_task(source, %{force: true})
 
     json(conn, %{data: %{message: "Index enqueued."}})
-  end
-
-  defp format_changeset_errors(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-      Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
-        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
-      end)
-    end)
   end
 end
