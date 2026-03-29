@@ -30,15 +30,15 @@ defmodule Pinchflat.Downloading.MediaRetentionWorker do
   end
 
   defp cull_cullable_media_items do
-    cullable_media =
+    query =
       MediaQuery.new()
       |> MediaQuery.require_assoc(:source)
       |> where(^MediaQuery.cullable())
-      |> Repo.all()
 
-    Logger.info("Culling #{length(cullable_media)} media items past their retention date")
+    count = Repo.aggregate(query, :count, :id)
+    Logger.info("Culling #{count} media items past their retention date")
 
-    Enum.each(cullable_media, fn media_item ->
+    Repo.batch_process(query, fn media_item ->
       # Setting `prevent_download` does what it says on the tin, but `culled_at` is purely informational.
       # We don't actually do anything with that in terms of queries and it gets set to nil if the media item
       # gets re-downloaded.
@@ -52,15 +52,15 @@ defmodule Pinchflat.Downloading.MediaRetentionWorker do
   # NOTE: Since this is a date and not a datetime, we can't add logic to have to-the-minute
   # comparison like we can with retention periods. We can only compare to the day.
   defp delete_media_items_from_before_cutoff do
-    deletable_media =
+    query =
       MediaQuery.new()
       |> MediaQuery.require_assoc(:source)
       |> where(^MediaQuery.deletable_based_on_source_cutoff())
-      |> Repo.all()
 
-    Logger.info("Deleting #{length(deletable_media)} media items that are from before the source cutoff")
+    count = Repo.aggregate(query, :count, :id)
+    Logger.info("Deleting #{count} media items that are from before the source cutoff")
 
-    Enum.each(deletable_media, fn media_item ->
+    Repo.batch_process(query, fn media_item ->
       # Note that I'm not setting `prevent_download` on the media_item here.
       # That's because cutoff_date can easily change and it's a valid behavior to re-download older
       # media items if the cutoff_date changes.

@@ -141,8 +141,7 @@ defmodule Pinchflat.Sources do
 
     MediaQuery.new()
     |> where(^MediaQuery.for_source(source))
-    |> Repo.all()
-    |> Enum.each(fn media_item ->
+    |> Repo.batch_process(fn media_item ->
       Media.delete_media_item(media_item, delete_files: delete_files)
     end)
 

@@ -27,4 +27,27 @@ defmodule Pinchflat.Repo do
   def maybe_limit(query, limit) do
     if limit, do: limit(query, ^limit), else: query
   end
+
+  @doc """
+  Processes query results in batches to avoid loading large result sets into memory.
+
+  Fetches `batch_size` records at a time and applies `fun` to each record.
+  Expects that processing each record will cause it to no longer match the
+  original query (e.g., via deletion or a status update that changes filtered fields).
+
+  Returns :ok.
+  """
+  def batch_process(query, fun, batch_size \\ 500) do
+    batch =
+      query
+      |> limit(^batch_size)
+      |> all()
+
+    unless Enum.empty?(batch) do
+      Enum.each(batch, fun)
+      batch_process(query, fun, batch_size)
+    end
+
+    :ok
+  end
 end
