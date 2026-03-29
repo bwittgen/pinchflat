@@ -6,14 +6,15 @@ defmodule Pinchflat.Utils.CliUtils do
   require Logger
 
   alias Pinchflat.Utils.StringUtils
+  alias Pinchflat.Utils.ProcessMonitor
 
   @doc """
   Wraps a command in a shell script that will terminate
   the command if stdin is closed. Useful for stopping
   commands if the job runner is cancelled.
 
-  Delegates to `System.cmd/3` and any options/output
-  are passed through. Custom options can be passed in.
+  Uses `ProcessMonitor` to enforce configurable timeout and memory limits
+  on child processes. Custom options can be passed in.
 
   Custom options:
     - logging_arg_override: if set, the passed value will be logged in place of
@@ -29,7 +30,7 @@ defmodule Pinchflat.Utils.CliUtils do
 
     Logger.info("[command_wrapper]: #{command} called with: #{logging_arg_override}")
 
-    {output, status} = System.cmd(wrapper_command, actual_command, command_opts)
+    {output, status} = ProcessMonitor.run(wrapper_command, actual_command, command_opts)
     log_cmd_result(command, logging_arg_override, status, output)
 
     {output, status}

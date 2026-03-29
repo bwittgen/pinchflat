@@ -52,8 +52,16 @@ config :pinchflat, Pinchflat.Repo,
 #   - A specific version like "2025.12.08" - pins to that exact version
 yt_dlp_version_channel = System.get_env("YT_DLP_VERSION", "stable")
 
+# Process monitoring limits for yt-dlp subprocesses.
+# YT_DLP_TIMEOUT_SECONDS: max runtime per subprocess (default: 1800 = 30 min, 0 to disable)
+# MAX_PROCESS_MEMORY_KB: max RSS memory per subprocess tree (default: 1572864 = 1.5 GB, 0 to disable)
+{process_timeout_seconds, _} = Integer.parse(System.get_env("YT_DLP_TIMEOUT_SECONDS", "1800"))
+{max_process_memory_kb, _} = Integer.parse(System.get_env("MAX_PROCESS_MEMORY_KB", "1572864"))
+
 config :pinchflat,
-  yt_dlp_version_channel: yt_dlp_version_channel
+  yt_dlp_version_channel: yt_dlp_version_channel,
+  process_timeout_seconds: process_timeout_seconds,
+  max_process_memory_kb: max_process_memory_kb
 
 # Used to set the cron for the yt-dlp update worker. The reason for this is
 # to avoid all instances of PF updating yt-dlp at the same time, which 1)
