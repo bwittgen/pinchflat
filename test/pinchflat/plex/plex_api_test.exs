@@ -154,6 +154,146 @@ defmodule Pinchflat.Plex.PlexApiTest do
 
       assert {:error, "Media not found in Plex"} = PlexApi.find_media_item(media_item)
     end
+
+    test "matches when title matches and media_id is found in Plex filepath" do
+      media_item = media_item_fixture(%{title: "Q&A", media_id: "dQw4w9WgXcQ", duration_seconds: 300})
+
+      sections_response =
+        Phoenix.json_library().encode!(%{
+          "MediaContainer" => %{
+            "Directory" => [%{"key" => "1", "title" => "Videos"}]
+          }
+        })
+
+      search_response =
+        Phoenix.json_library().encode!(%{
+          "MediaContainer" => %{
+            "Metadata" => [
+              %{
+                "title" => "Q&A",
+                "ratingKey" => "789",
+                "duration" => 500_000,
+                "Media" => [
+                  %{"Part" => [%{"file" => "/videos/Q&A [dQw4w9WgXcQ].mp4"}]}
+                ]
+              }
+            ]
+          }
+        })
+
+      expect(HTTPClientMock, :get, fn _url, _headers -> {:ok, sections_response} end)
+      expect(HTTPClientMock, :get, fn _url, _headers -> {:ok, search_response} end)
+
+      assert {:ok, %{"title" => "Q&A"}} = PlexApi.find_media_item(media_item)
+    end
+
+    test "matches when title matches and duration matches within tolerance" do
+      media_item = media_item_fixture(%{title: "Q&A", duration_seconds: 300})
+
+      sections_response =
+        Phoenix.json_library().encode!(%{
+          "MediaContainer" => %{
+            "Directory" => [%{"key" => "1", "title" => "Videos"}]
+          }
+        })
+
+      search_response =
+        Phoenix.json_library().encode!(%{
+          "MediaContainer" => %{
+            "Metadata" => [
+              %{
+                "title" => "Q&A",
+                "ratingKey" => "789",
+                "duration" => 303_000,
+                "Media" => [
+                  %{"Part" => [%{"file" => "/videos/some_other_file.mp4"}]}
+                ]
+              }
+            ]
+          }
+        })
+
+      expect(HTTPClientMock, :get, fn _url, _headers -> {:ok, sections_response} end)
+      expect(HTTPClientMock, :get, fn _url, _headers -> {:ok, search_response} end)
+
+      assert {:ok, %{"title" => "Q&A"}} = PlexApi.find_media_item(media_item)
+    end
+
+    test "rejects match when title matches but secondary fields do not" do
+      media_item =
+        media_item_fixture(%{
+          title: "Q&A",
+          media_id: "abc123",
+          duration_seconds: 300,
+          uploaded_at: ~U[2023-06-15 00:00:00Z]
+        })
+
+      sections_response =
+        Phoenix.json_library().encode!(%{
+          "MediaContainer" => %{
+            "Directory" => [%{"key" => "1", "title" => "Videos"}]
+          }
+        })
+
+      search_response =
+        Phoenix.json_library().encode!(%{
+          "MediaContainer" => %{
+            "Metadata" => [
+              %{
+                "title" => "Q&A",
+                "ratingKey" => "789",
+                "duration" => 500_000,
+                "year" => 2024,
+                "Media" => [
+                  %{"Part" => [%{"file" => "/videos/Q&A [xyz789].mp4"}]}
+                ]
+              }
+            ]
+          }
+        })
+
+      expect(HTTPClientMock, :get, fn _url, _headers -> {:ok, sections_response} end)
+      expect(HTTPClientMock, :get, fn _url, _headers -> {:ok, search_response} end)
+
+      assert {:error, "Media not found in Plex"} = PlexApi.find_media_item(media_item)
+    end
+
+    test "matches when title and year match" do
+      media_item =
+        media_item_fixture(%{
+          title: "Highlights",
+          duration_seconds: nil,
+          uploaded_at: ~U[2023-06-15 00:00:00Z]
+        })
+
+      sections_response =
+        Phoenix.json_library().encode!(%{
+          "MediaContainer" => %{
+            "Directory" => [%{"key" => "1", "title" => "Videos"}]
+          }
+        })
+
+      search_response =
+        Phoenix.json_library().encode!(%{
+          "MediaContainer" => %{
+            "Metadata" => [
+              %{
+                "title" => "Highlights",
+                "ratingKey" => "789",
+                "year" => 2023,
+                "Media" => [
+                  %{"Part" => [%{"file" => "/videos/some_other_file.mp4"}]}
+                ]
+              }
+            ]
+          }
+        })
+
+      expect(HTTPClientMock, :get, fn _url, _headers -> {:ok, sections_response} end)
+      expect(HTTPClientMock, :get, fn _url, _headers -> {:ok, search_response} end)
+
+      assert {:ok, %{"title" => "Highlights"}} = PlexApi.find_media_item(media_item)
+    end
   end
 
   describe "check_metadata/2" do
