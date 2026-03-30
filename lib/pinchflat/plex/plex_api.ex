@@ -254,10 +254,79 @@ defmodule Pinchflat.Plex.PlexApi do
   end
 
   defp matches_media_item?(plex_item, media_item) do
+    titles_match?(plex_item, media_item) && secondary_fields_match?(plex_item, media_item)
+  end
+
+  defp titles_match?(plex_item, media_item) do
     plex_title = Map.get(plex_item, "title", "")
     media_title = media_item.title || ""
 
     String.downcase(plex_title) == String.downcase(media_title)
+  end
+
+  # Checks secondary fields to reduce false positives from title-only matching.
+  # If none of the secondary fields are available on either side, falls back to
+  # title-only matching for graceful degradation.
+  defp secondary_fields_match?(plex_item, media_item) do
+    results = [
+      media_id_in_filepath?(plex_item, media_item),
+      duration_matches?(plex_item, media_item),
+      upload_date_matches?(plex_item, media_item)
+    ]
+
+    if Enum.all?(results, &(&1 == :unavailable)) do
+      true
+    else
+      Enum.any?(results, &(&1 == true))
+    end
+  end
+
+  defp media_id_in_filepath?(plex_item, media_item) do
+    media_id = media_item.media_id
+
+    if is_nil(media_id) || media_id == "" do
+      :unavailable
+    else
+      plex_filepaths = get_plex_filepaths(plex_item)
+
+      if Enum.empty?(plex_filepaths) do
+        :unavailable
+      else
+        Enum.any?(plex_filepaths, &String.contains?(&1, media_id))
+      end
+    end
+  end
+
+  defp duration_matches?(plex_item, media_item) do
+    media_duration = media_item.duration_seconds
+    plex_duration = get_plex_duration_seconds(plex_item)
+
+    cond do
+      is_nil(media_duration) or is_nil(plex_duration) -> :unavailable
+      abs(media_duration - plex_duration) <= 5 -> true
+      true -> false
+    end
+  end
+
+  defp upload_date_matches?(plex_item, media_item) do
+    media_year = get_year(media_item)
+    plex_year = Map.get(plex_item, "year")
+
+    cond do
+      is_nil(media_year) or is_nil(plex_year) -> :unavailable
+      media_year == plex_year -> true
+      true -> false
+    end
+  end
+
+  defp get_plex_filepaths(plex_item) do
+    plex_item
+    |> Map.get("Media", [])
+    |> Enum.flat_map(fn media ->
+      media
+      |> Map.get("Part", [])
+      |> Enum.map(fn part -> Map.get(part, "file", "") end)
+    end)
   end
 
   defp check_field(mismatches, _field, nil, _plex_value), do: mismatches
