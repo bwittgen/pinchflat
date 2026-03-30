@@ -64,6 +64,24 @@ defmodule PinchflatWeb.Api.SourcesControllerTest do
       assert data["id"] == source.id
       assert data["custom_name"] == source.custom_name
     end
+
+    test "returns 404 JSON for non-existent source", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/999999")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
+
+    test "returns 404 JSON for invalid source ID", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/invalid")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
   end
 
   describe "POST /api/sources" do
@@ -83,7 +101,7 @@ defmodule PinchflatWeb.Api.SourcesControllerTest do
   end
 
   describe "GET /api/sources/:source_id/media" do
-    test "returns media items for a source", %{conn: conn} do
+    test "returns media items for a source with pagination metadata", %{conn: conn} do
       source = source_fixture()
       media_item = media_item_fixture(%{source_id: source.id})
 
@@ -92,7 +110,8 @@ defmodule PinchflatWeb.Api.SourcesControllerTest do
         |> api_conn()
         |> get("/api/sources/#{source.id}/media")
 
-      assert %{"data" => data} = json_response(conn, 200)
+      response = json_response(conn, 200)
+      assert %{"data" => data, "page" => 1, "page_size" => 50, "total_count" => 1, "total_pages" => 1} = response
       assert is_list(data)
       assert Enum.any?(data, fn m -> m["id"] == media_item.id end)
     end
@@ -105,7 +124,75 @@ defmodule PinchflatWeb.Api.SourcesControllerTest do
         |> api_conn()
         |> get("/api/sources/#{source.id}/media")
 
-      assert %{"data" => []} = json_response(conn, 200)
+      assert %{"data" => [], "total_count" => 0, "total_pages" => 1} = json_response(conn, 200)
+    end
+
+    test "respects page_size parameter", %{conn: conn} do
+      source = source_fixture()
+      for _ <- 1..3, do: media_item_fixture(%{source_id: source.id})
+
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/#{source.id}/media", %{"page_size" => "2"})
+
+      response = json_response(conn, 200)
+      assert %{"data" => data, "page" => 1, "page_size" => 2, "total_count" => 3, "total_pages" => 2} = response
+      assert length(data) == 2
+    end
+
+    test "respects page parameter", %{conn: conn} do
+      source = source_fixture()
+      for _ <- 1..3, do: media_item_fixture(%{source_id: source.id})
+
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/#{source.id}/media", %{"page" => "2", "page_size" => "2"})
+
+      response = json_response(conn, 200)
+      assert %{"data" => data, "page" => 2, "page_size" => 2, "total_count" => 3, "total_pages" => 2} = response
+      assert length(data) == 1
+    end
+
+    test "clamps page_size to maximum of 100", %{conn: conn} do
+      source = source_fixture()
+
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/#{source.id}/media", %{"page_size" => "200"})
+
+      assert %{"page_size" => 100} = json_response(conn, 200)
+    end
+
+    test "defaults to page 1 and page_size 50 with invalid params", %{conn: conn} do
+      source = source_fixture()
+
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/#{source.id}/media", %{"page" => "abc", "page_size" => "xyz"})
+
+      assert %{"page" => 1, "page_size" => 50} = json_response(conn, 200)
+    end
+
+    test "returns 404 JSON for non-existent source", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/999999/media")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
+
+    test "returns 404 JSON for invalid source ID", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/invalid/media")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
     end
   end
 
@@ -120,6 +207,24 @@ defmodule PinchflatWeb.Api.SourcesControllerTest do
 
       assert %{"data" => %{"message" => "Index enqueued."}} = json_response(conn, 200)
       assert_enqueued(worker: MediaCollectionIndexingWorker)
+    end
+
+    test "returns 404 JSON for non-existent source", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> post("/api/sources/999999/force_index")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
+
+    test "returns 404 JSON for invalid source ID", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> post("/api/sources/invalid/force_index")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
     end
   end
 
