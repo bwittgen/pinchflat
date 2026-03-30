@@ -4,6 +4,7 @@ defmodule Pinchflat.Plex.PlexScanWorkerTest do
   import Pinchflat.MediaFixtures
 
   alias Pinchflat.Plex.PlexScanWorker
+  alias Pinchflat.Plex.PlexLookupWorker
 
   setup do
     stub(PlexApiMock, :enabled?, fn -> true end)
@@ -31,48 +32,47 @@ defmodule Pinchflat.Plex.PlexScanWorkerTest do
     test "triggers a library scan when plex is enabled", %{media_item: media_item} do
       expect(PlexApiMock, :enabled?, fn -> true end)
       expect(PlexApiMock, :trigger_library_scan, fn nil -> :ok end)
-      expect(PlexApiMock, :find_media_item, fn mi -> assert mi.id == media_item.id; {:ok, %{"ratingKey" => "1"}} end)
-      expect(PlexApiMock, :check_metadata, fn _mi, _pi -> {:ok, []} end)
-      expect(PlexApiMock, :sync_watch_status, fn _mi, _pi -> {:ok, %{watched: false}} end)
 
       assert :ok = perform_job(PlexScanWorker, %{media_item_id: media_item.id})
+    end
+
+    test "enqueues a lookup job after successful scan", %{media_item: media_item} do
+      expect(PlexApiMock, :enabled?, fn -> true end)
+      expect(PlexApiMock, :trigger_library_scan, fn nil -> :ok end)
+
+      assert [] = all_enqueued(worker: PlexLookupWorker)
+      assert :ok = perform_job(PlexScanWorker, %{media_item_id: media_item.id})
+      assert [job] = all_enqueued(worker: PlexLookupWorker)
+      assert job.args == %{"media_item_id" => media_item.id}
+    end
+
+    test "schedules lookup job with a delay", %{media_item: media_item} do
+      expect(PlexApiMock, :enabled?, fn -> true end)
+      expect(PlexApiMock, :trigger_library_scan, fn nil -> :ok end)
+
+      assert :ok = perform_job(PlexScanWorker, %{media_item_id: media_item.id})
+      assert [job] = all_enqueued(worker: PlexLookupWorker)
+      assert job.scheduled_at > DateTime.utc_now()
     end
 
     test "skips scan when plex is not enabled", %{media_item: media_item} do
       expect(PlexApiMock, :enabled?, fn -> false end)
 
       assert :ok = perform_job(PlexScanWorker, %{media_item_id: media_item.id})
+      assert [] = all_enqueued(worker: PlexLookupWorker)
     end
 
-    test "does not blow up if the media item doesn't exist" do
-      stub(PlexApiMock, :enabled?, fn -> true end)
+    test "does not enqueue lookup when scan fails", %{media_item: media_item} do
+      expect(PlexApiMock, :enabled?, fn -> true end)
+      expect(PlexApiMock, :trigger_library_scan, fn nil -> {:error, "connection refused"} end)
 
-      assert :ok = perform_job(PlexScanWorker, %{media_item_id: 0})
+      assert :ok = perform_job(PlexScanWorker, %{media_item_id: media_item.id})
+      assert [] = all_enqueued(worker: PlexLookupWorker)
     end
 
     test "handles library scan failure gracefully", %{media_item: media_item} do
       expect(PlexApiMock, :enabled?, fn -> true end)
       expect(PlexApiMock, :trigger_library_scan, fn nil -> {:error, "connection refused"} end)
-
-      assert :ok = perform_job(PlexScanWorker, %{media_item_id: media_item.id})
-    end
-
-    test "handles find_media_item failure gracefully", %{media_item: media_item} do
-      expect(PlexApiMock, :enabled?, fn -> true end)
-      expect(PlexApiMock, :trigger_library_scan, fn nil -> :ok end)
-      expect(PlexApiMock, :find_media_item, fn _mi -> {:error, "not found"} end)
-
-      assert :ok = perform_job(PlexScanWorker, %{media_item_id: media_item.id})
-    end
-
-    test "logs metadata mismatches", %{media_item: media_item} do
-      mismatches = [%{field: "title", pinchflat_value: "A", plex_value: "B"}]
-
-      expect(PlexApiMock, :enabled?, fn -> true end)
-      expect(PlexApiMock, :trigger_library_scan, fn nil -> :ok end)
-      expect(PlexApiMock, :find_media_item, fn _mi -> {:ok, %{"ratingKey" => "1"}} end)
-      expect(PlexApiMock, :check_metadata, fn _mi, _pi -> {:ok, mismatches} end)
-      expect(PlexApiMock, :sync_watch_status, fn _mi, _pi -> {:ok, %{watched: true}} end)
 
       assert :ok = perform_job(PlexScanWorker, %{media_item_id: media_item.id})
     end
