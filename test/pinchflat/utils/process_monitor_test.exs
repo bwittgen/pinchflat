@@ -58,5 +58,41 @@ defmodule Pinchflat.Utils.ProcessMonitorTest do
 
       assert output == "line1\nline2\nline3\n"
     end
+
+    @tag timeout: :timer.seconds(15)
+    test "terminates processes that exceed memory limit" do
+      # Any process uses well over 1 KB of RSS, so this triggers on the first memory check (~5s)
+      {_output, exit_code} = ProcessMonitor.run("/bin/sleep", ["30"], max_memory_kb: 1, timeout_ms: 15_000)
+
+      assert exit_code == 1
+    end
+
+    test "does not terminate processes within memory limit" do
+      {output, exit_code} = ProcessMonitor.run("/bin/echo", ["ok"], max_memory_kb: 1_000_000, timeout_ms: 5_000)
+
+      assert exit_code == 0
+      assert String.trim(output) == "ok"
+    end
+
+    test "disables memory limit when set to 0 via option" do
+      {output, exit_code} = ProcessMonitor.run("/bin/echo", ["works"], max_memory_kb: 0, timeout_ms: 5_000)
+
+      assert exit_code == 0
+      assert String.trim(output) == "works"
+    end
+
+    test "disables memory limit when set to 0 via config" do
+      original = Application.get_env(:pinchflat, :max_process_memory_kb)
+
+      try do
+        Application.put_env(:pinchflat, :max_process_memory_kb, 0)
+        {output, exit_code} = ProcessMonitor.run("/bin/echo", ["works"])
+
+        assert exit_code == 0
+        assert String.trim(output) == "works"
+      after
+        Application.put_env(:pinchflat, :max_process_memory_kb, original)
+      end
+    end
   end
 end
