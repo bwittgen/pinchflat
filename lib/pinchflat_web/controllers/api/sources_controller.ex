@@ -24,6 +24,9 @@ defmodule PinchflatWeb.Api.SourcesController do
       |> Repo.preload(:media_profile)
 
     json(conn, %{data: source})
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
+    Ecto.Query.CastError -> {:error, :not_found}
   end
 
   def create(conn, %{"source" => source_params}) do
@@ -70,6 +73,9 @@ defmodule PinchflatWeb.Api.SourcesController do
       total_count: total_count,
       total_pages: total_pages
     })
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
+    Ecto.Query.CastError -> {:error, :not_found}
   end
 
   defp parse_int(nil, default), do: default
@@ -87,5 +93,8 @@ defmodule PinchflatWeb.Api.SourcesController do
     SlowIndexingHelpers.kickoff_indexing_task(source, %{force: true})
 
     json(conn, %{data: %{message: "Index enqueued."}})
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
+    Ecto.Query.CastError -> {:error, :not_found}
   end
 end
