@@ -2,8 +2,6 @@ defmodule PinchflatWeb.Api.SourcesController do
   use PinchflatWeb, :controller
   use Pinchflat.Media.MediaQuery
 
-  import PinchflatWeb.Api.ErrorHelpers
-
   alias Pinchflat.Repo
   alias Pinchflat.Sources
   alias Pinchflat.SlowIndexing.SlowIndexingHelpers
@@ -30,18 +28,12 @@ defmodule PinchflatWeb.Api.SourcesController do
   end
 
   def create(conn, %{"source" => source_params}) do
-    case Sources.create_source(source_params) do
-      {:ok, source} ->
-        source = Repo.preload(source, :media_profile)
+    with {:ok, source} <- Sources.create_source(source_params) do
+      source = Repo.preload(source, :media_profile)
 
-        conn
-        |> put_status(:created)
-        |> json(%{data: source})
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(%{errors: format_changeset_errors(changeset)})
+      conn
+      |> put_status(:created)
+      |> json(%{data: source})
     end
   end
 
