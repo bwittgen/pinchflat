@@ -1,7 +1,10 @@
 defmodule Pinchflat.Plex.PlexScanWorker do
   @moduledoc """
-  Oban worker that triggers Plex library scans and media matching
-  after downloads complete.
+  Oban worker that triggers Plex library scans after downloads complete.
+
+  After triggering a scan, schedules a PlexLookupWorker job with a delay
+  to give Plex time to index the newly downloaded file before attempting
+  to look it up.
   """
 
   use Oban.Worker,
@@ -12,8 +15,10 @@ defmodule Pinchflat.Plex.PlexScanWorker do
 
   require Logger
 
-  alias Pinchflat.Media
   alias Pinchflat.Plex.PlexApi
+  alias Pinchflat.Plex.PlexLookupWorker
+
+  @default_lookup_delay_seconds 30
 
   @doc """
   Enqueues a Plex scan job for a given media item.
@@ -31,39 +36,37 @@ defmodule Pinchflat.Plex.PlexScanWorker do
     plex_api = plex_runner()
 
     if plex_api.enabled?() do
-      media_item = Media.get_media_item!(media_item_id)
-
       Logger.info("Triggering Plex library scan for media item #{media_item_id}")
 
-      with :ok <- plex_api.trigger_library_scan(),
-           {:ok, plex_item} <- plex_api.find_media_item(media_item),
-           {:ok, mismatches} <- plex_api.check_metadata(media_item, plex_item),
-           {:ok, watch_status} <- plex_api.sync_watch_status(media_item, plex_item) do
-        log_results(media_item_id, mismatches, watch_status)
-        :ok
-      else
+      case plex_api.trigger_library_scan() do
+        :ok ->
+          enqueue_lookup(media_item_id)
+          :ok
+
         {:error, reason} ->
-          Logger.warning("Plex sync incomplete for media item #{media_item_id}: #{inspect(reason)}")
+          Logger.warning("Plex scan failed for media item #{media_item_id}: #{inspect(reason)}")
           :ok
       end
     else
       Logger.debug("Plex integration not enabled, skipping scan for media item #{media_item_id}")
       :ok
     end
-  rescue
-    Ecto.NoResultsError ->
-      Logger.info("#{__MODULE__} discarded: media item #{media_item_id} not found")
-      :ok
   end
 
-  defp log_results(media_item_id, mismatches, watch_status) do
-    if Enum.any?(mismatches) do
-      Logger.info(
-        "Plex metadata mismatches for media item #{media_item_id}: #{inspect(mismatches)}"
-      )
-    end
+  defp enqueue_lookup(media_item_id) do
+    delay = lookup_delay_seconds()
 
-    Logger.debug("Plex watch status for media item #{media_item_id}: #{inspect(watch_status)}")
+    Logger.info(
+      "Scheduling Plex lookup for media item #{media_item_id} in #{delay} seconds"
+    )
+
+    %{media_item_id: media_item_id}
+    |> PlexLookupWorker.new(schedule_in: delay)
+    |> Oban.insert()
+  end
+
+  defp lookup_delay_seconds do
+    Application.get_env(:pinchflat, :plex_lookup_delay_seconds, @default_lookup_delay_seconds)
   end
 
   defp plex_runner do
