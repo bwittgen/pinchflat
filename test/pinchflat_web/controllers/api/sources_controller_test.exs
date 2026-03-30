@@ -64,6 +64,24 @@ defmodule PinchflatWeb.Api.SourcesControllerTest do
       assert data["id"] == source.id
       assert data["custom_name"] == source.custom_name
     end
+
+    test "returns 404 JSON for non-existent source", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/999999")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
+
+    test "returns 404 JSON for invalid source ID", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/invalid")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
   end
 
   describe "POST /api/sources" do
@@ -107,6 +125,24 @@ defmodule PinchflatWeb.Api.SourcesControllerTest do
 
       assert %{"data" => []} = json_response(conn, 200)
     end
+
+    test "returns 404 JSON for non-existent source", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/999999/media")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
+
+    test "returns 404 JSON for invalid source ID", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> get("/api/sources/invalid/media")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
   end
 
   describe "POST /api/sources/:source_id/force_index" do
@@ -120,6 +156,24 @@ defmodule PinchflatWeb.Api.SourcesControllerTest do
 
       assert %{"data" => %{"message" => "Index enqueued."}} = json_response(conn, 200)
       assert_enqueued(worker: MediaCollectionIndexingWorker)
+    end
+
+    test "returns 404 JSON for non-existent source", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> post("/api/sources/999999/force_index")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
+    end
+
+    test "returns 404 JSON for invalid source ID", %{conn: conn} do
+      conn =
+        conn
+        |> api_conn()
+        |> post("/api/sources/invalid/force_index")
+
+      assert %{"error" => "Not found"} = json_response(conn, 404)
     end
   end
 
