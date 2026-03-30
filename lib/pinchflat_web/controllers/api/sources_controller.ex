@@ -42,18 +42,45 @@ defmodule PinchflatWeb.Api.SourcesController do
     end
   end
 
-  def media(conn, %{"source_id" => source_id}) do
+  def media(conn, %{"source_id" => source_id} = params) do
     source = Sources.get_source!(source_id)
 
-    media_items =
+    page = max(parse_int(params["page"], 1), 1)
+    page_size = params["page_size"] |> parse_int(50) |> max(1) |> min(100)
+
+    base_query =
       MediaQuery.new()
       |> where(^MediaQuery.for_source(source))
       |> order_by(desc: :inserted_at)
+
+    total_count = Repo.aggregate(base_query, :count)
+    total_pages = max(ceil(total_count / page_size), 1)
+
+    media_items =
+      base_query
+      |> limit(^page_size)
+      |> offset(^((page - 1) * page_size))
       |> Repo.all()
       |> Repo.preload(:source)
 
-    json(conn, %{data: media_items})
+    json(conn, %{
+      data: media_items,
+      page: page,
+      page_size: page_size,
+      total_count: total_count,
+      total_pages: total_pages
+    })
   end
+
+  defp parse_int(nil, default), do: default
+  defp parse_int(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, _} -> int
+      :error -> default
+    end
+  end
+  defp parse_int(value, _default) when is_integer(value), do: value
+  defp parse_int(_, default), do: default
 
   def force_index(conn, %{"source_id" => source_id}) do
     source = Sources.get_source!(source_id)
